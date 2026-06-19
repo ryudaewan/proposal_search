@@ -3,6 +3,7 @@ import re
 
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
+from azure.search.documents.models import VectorizedQuery
 from openai import AzureOpenAI
 
 _openai_client: AzureOpenAI | None = None
@@ -64,3 +65,28 @@ def index_slides(blob_name: str, title: str, uploaded_at: str, slides: list[list
         _get_search_client().upload_documents(documents)
 
     return len(documents)
+
+
+def search_proposals(query: str, top: int = 5) -> list[dict]:
+    vector = get_embedding(query)
+    results = _get_search_client().search(
+        search_text=query,
+        vector_queries=[
+            VectorizedQuery(vector=vector, k_nearest_neighbors=top, fields="content_vector")
+        ],
+        query_type="semantic",
+        semantic_configuration_name="semantic-config",
+        top=top,
+        select=["blob_name", "title", "slide_index", "slide_text", "uploaded_at"],
+    )
+    return [
+        {
+            "blob_name": r["blob_name"],
+            "title": r["title"],
+            "slide_index": r["slide_index"],
+            "slide_text": r["slide_text"],
+            "uploaded_at": r["uploaded_at"],
+            "score": r["@search.score"],
+        }
+        for r in results
+    ]

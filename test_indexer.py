@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import indexer
-from indexer import get_embedding, index_slides, make_doc_id
+from indexer import get_embedding, index_slides, make_doc_id, search_proposals
 
 FAKE_VECTOR = [0.1] * 1536
 UPLOADED_AT = "2024-01-01T00:00:00+00:00"
@@ -142,3 +142,86 @@ def test_index_slides_upload_called_once():
 
     mock_search.upload_documents.assert_called_once()
     assert len(mock_search.upload_documents.call_args[0][0]) == 3
+
+
+# ── search_proposals ──────────────────────────────────────────────────────────
+
+def _make_search_result(**kwargs) -> dict:
+    defaults = {
+        "blob_name": "test.pptx",
+        "title": "제목",
+        "slide_index": 0,
+        "slide_text": "슬라이드 내용",
+        "uploaded_at": UPLOADED_AT,
+        "@search.score": 0.95,
+    }
+    return {**defaults, **kwargs}
+
+
+def test_search_proposals_returns_results():
+    mock_search = MagicMock()
+    mock_search.search.return_value = [_make_search_result()]
+
+    with patch("indexer._get_search_client", return_value=mock_search):
+        with patch("indexer.get_embedding", return_value=FAKE_VECTOR):
+            results = search_proposals("테스트 쿼리")
+
+    assert len(results) == 1
+
+
+def test_search_proposals_result_structure():
+    mock_search = MagicMock()
+    mock_search.search.return_value = [_make_search_result(slide_index=2, score=0.88)]
+
+    with patch("indexer._get_search_client", return_value=mock_search):
+        with patch("indexer.get_embedding", return_value=FAKE_VECTOR):
+            results = search_proposals("쿼리")
+
+    r = results[0]
+    assert r["blob_name"] == "test.pptx"
+    assert r["title"] == "제목"
+    assert r["slide_index"] == 2
+    assert r["slide_text"] == "슬라이드 내용"
+    assert r["uploaded_at"] == UPLOADED_AT
+    assert r["score"] == 0.95  # @search.score → score
+
+
+def test_search_proposals_passes_top():
+    mock_search = MagicMock()
+    mock_search.search.return_value = []
+
+    with patch("indexer._get_search_client", return_value=mock_search):
+        with patch("indexer.get_embedding", return_value=FAKE_VECTOR):
+            search_proposals("쿼리", top=10)
+
+    call_kwargs = mock_search.search.call_args.kwargs
+    assert call_kwargs["top"] == 10
+
+
+def test_search_proposals_uses_hybrid_search():
+    from azure.search.documents.models import VectorizedQuery
+
+    mock_search = MagicMock()
+    mock_search.search.return_value = []
+
+    with patch("indexer._get_search_client", return_value=mock_search):
+        with patch("indexer.get_embedding", return_value=FAKE_VECTOR):
+            search_proposals("쿼리")
+
+    call_kwargs = mock_search.search.call_args.kwargs
+    assert call_kwargs["search_text"] == "쿼리"
+    assert call_kwargs["query_type"] == "semantic"
+    vector_queries = call_kwargs["vector_queries"]
+    assert len(vector_queries) == 1
+    assert isinstance(vector_queries[0], VectorizedQuery)
+
+
+def test_search_proposals_empty_results():
+    mock_search = MagicMock()
+    mock_search.search.return_value = []
+
+    with patch("indexer._get_search_client", return_value=mock_search):
+        with patch("indexer.get_embedding", return_value=FAKE_VECTOR):
+            results = search_proposals("없는 내용")
+
+    assert results == []
