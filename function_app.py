@@ -9,7 +9,6 @@ from pptx_parser import parse_slides
 
 app = func.FunctionApp()
 
-
 @app.blob_trigger(
     arg_name="pptx",
     path="raw-proposal/{name}",
@@ -47,12 +46,15 @@ def search(req: func.HttpRequest) -> func.HttpResponse:
 
     try:
         top = int(top)
+
         if top < 1 or top > 50:
             raise ValueError
+        
     except ValueError:
         return _error("top은 1 이상 50 이하의 정수여야 합니다.", 400)
 
     results = search_proposals(query, top=top)
+    
     return func.HttpResponse(
         json.dumps({"query": query, "count": len(results), "results": results}, ensure_ascii=False),
         mimetype="application/json",
