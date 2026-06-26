@@ -17,6 +17,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 uv pip install -r requirements.txt
 
 # Azure Functions 로컬 실행 (Azurite가 먼저 실행되어 있어야 함)
+# macOS/Linux
+source .venv/bin/activate
+# Windows (cmd)
+.venv\Scripts\activate.bat
 func start
 
 # Azurite 실행 (로컬 Azure Storage 에뮬레이터) — 전역 설치: pnpm add -g azurite

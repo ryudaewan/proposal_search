@@ -39,6 +39,11 @@ azurite --skipApiVersionCheck
 **2. Azure Functions 실행** (별도 터미널)
 
 ```bash
+# macOS/Linux
+source .venv/bin/activate
+# Windows (cmd)
+.venv\Scripts\activate.bat
+
 func start
 ```
 
@@ -78,4 +83,5 @@ az storage blob upload \
 | 변수명 | 값 | 설명 |
 |--------|-----|------|
 | `FUNCTIONS_WORKER_RUNTIME` | `python` | Python 런타임 지정 |
-| `AzureWebJobsStorage` | `UseDevelopmentStorage=true` | 로컬 Azurite 연결 |
+| `AzureWebJobsStorage` | `UseDevelopmentStorage=true` | Azure Function이 자체적으로 필요로 하는 저장소ㅓㄴ |
+| `PptxRepoConnection` | `UseDevelopmentStorage=true` | Blob Trigger가 읽을 Blob Storage |
